@@ -28,7 +28,7 @@ const Testimonials = () => {
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-4xl font-bold mb-4">Loved by freelancers</h2>
           <p className="text-xl text-muted-foreground">
-            Join thousands of professionals who trust ProposalGenie
+            Join thousands of professionals who trust Proposely
           </p>
         </div>
         

@@ -10,7 +10,7 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <FileText className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">ProposalGenie</span>
+              <span className="text-xl font-bold">Proposely</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Built for freelancers who want to look professional — faster.
@@ -43,13 +43,13 @@ const Footer = () => {
               <li><a href="#help" className="hover:text-primary transition-colors">Help Center</a></li>
               <li><a href="#privacy" className="hover:text-primary transition-colors">Privacy</a></li>
               <li><a href="#terms" className="hover:text-primary transition-colors">Terms</a></li>
-              <li><a href="mailto:partnerships@proposalgenie.com" className="hover:text-primary transition-colors">Enterprise</a></li>
+              <li><a href="mailto:partnerships@proposely.com" className="hover:text-primary transition-colors">Enterprise</a></li>
             </ul>
           </div>
         </div>
         
         <div className="pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© 2025 ProposalGenie. All rights reserved.</p>
+          <p>© 2025 Proposely. All rights reserved.</p>
         </div>
       </div>
     </footer>

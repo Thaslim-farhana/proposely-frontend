@@ -28,7 +28,7 @@ const Benefits = () => {
     <section className="py-16 border-y border-border">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Why ProposalGenie?</h2>
+          <h2 className="text-3xl font-bold mb-4">Why Proposely?</h2>
         </div>
         
         <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">

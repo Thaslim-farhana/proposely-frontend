@@ -53,7 +53,7 @@ const Hero = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-3xl blur-3xl"></div>
             <img 
               src={heroImage} 
-              alt="ProposalGenie workspace showing professional proposal creation" 
+              alt="Proposely workspace showing professional proposal creation" 
               className="relative rounded-2xl shadow-2xl"
             />
           </div>

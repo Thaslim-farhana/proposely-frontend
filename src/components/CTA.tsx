@@ -13,7 +13,7 @@ const CTA = () => {
             Ready to get started?
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Create your first professional proposal in minutes. Join 2,500+ freelancers who trust ProposalGenie.
+            Create your first professional proposal in minutes. Join 2,500+ freelancers who trust Proposely.
           </p>
           
           <div className="flex flex-wrap justify-center gap-4">
