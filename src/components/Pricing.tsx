@@ -21,7 +21,7 @@ const plans = [
   {
     name: "Pro",
     subtitle: "Most Popular",
-    price: "₹999",
+    price: "₹499",
     period: "month",
     description: "Growing freelancers",
     features: [
@@ -38,7 +38,7 @@ const plans = [
   {
     name: "Agency",
     subtitle: "For Teams",
-    price: "₹1,999",
+    price: "₹999",
     period: "month",
     description: "Teams & agencies",
     features: [
