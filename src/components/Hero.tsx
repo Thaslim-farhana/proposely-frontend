@@ -27,11 +27,11 @@ const Hero = () => {
             </p>
             
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="group">
+              <Button size="lg" className="group" onClick={() => window.location.href = '/dashboard'}>
                 Start Free
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}>
                 Watch Demo
               </Button>
             </div>

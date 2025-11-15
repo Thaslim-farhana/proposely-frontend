@@ -8,8 +8,22 @@ import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
 import CTA from "@/components/CTA";
 import Footer from "@/components/Footer";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  // Redirect to dashboard if user has visited before
+  useEffect(() => {
+    const hasVisited = localStorage.getItem('has_visited');
+    if (hasVisited) {
+      navigate('/dashboard');
+    } else {
+      localStorage.setItem('has_visited', 'true');
+    }
+  }, [navigate]);
+
   return (
     <div className="min-h-screen">
       <Header />
