@@ -6,6 +6,7 @@ import { useUIStore } from '@/state/uiStore';
 import { ProposalFormData } from '@/utils/validators';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { nanoid } from 'nanoid';
 
 const CreateProposal = () => {
   const navigate = useNavigate();
@@ -15,34 +16,36 @@ const CreateProposal = () => {
     setLoading(true);
     setError(null);
 
+    const payload = {
+      client_name: data.client_name,
+      project_type: data.project_type,
+      company_name: data.company_name || undefined,
+    };
+
     try {
-      const payload = {
-        client_name: data.client_name,
-        project_type: data.project_type,
-        company_name: data.company_name || undefined,
-      };
+      const localId = `p_${nanoid(8)}`;
       
       const response = await generateProposal(payload);
-      
-      addProposal({
+
+      const proposalToAdd = {
+        id: localId,
         client_name: data.client_name,
         project_type: data.project_type,
         company_name: data.company_name,
+        created_at: new Date().toISOString(),
         ...response,
-      });
+      };
+
+      addProposal(proposalToAdd);
 
       toast({
         title: 'Success!',
         description: 'Proposal generated successfully',
       });
 
-      // Navigate to the newly created proposal
-      const currentProposal = useUIStore.getState().currentProposal;
-      if (currentProposal) {
-        navigate(`/proposal/${currentProposal.id}`);
-      }
+      navigate(`/proposal/${localId}`);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to generate proposal';
+      const errorMessage = error?.response?.data?.message || 'Failed to generate proposal';
       setError(errorMessage);
       
       toast({
@@ -50,6 +53,10 @@ const CreateProposal = () => {
         description: errorMessage,
         variant: 'destructive',
       });
+
+      if (!error?.response) {
+        localStorage.setItem('draft_proposal', JSON.stringify(payload));
+      }
     } finally {
       setLoading(false);
     }
