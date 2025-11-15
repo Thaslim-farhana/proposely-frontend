@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { GenerateProposalResponse } from '@/api/client';
 
-interface Proposal extends GenerateProposalResponse {
+export interface Proposal extends GenerateProposalResponse {
   id: string;
   client_name: string;
   project_type: string;
@@ -15,11 +15,12 @@ interface UIStore {
   currentProposal: Proposal | null;
   isLoading: boolean;
   error: string | null;
-  addProposal: (proposal: Omit<Proposal, 'id' | 'created_at'>) => void;
+  addProposal: (proposal: Proposal) => void;
   setCurrentProposal: (proposal: Proposal | null) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   getProposalById: (id: string) => Proposal | undefined;
+  clearProposals: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -30,14 +31,9 @@ export const useUIStore = create<UIStore>()(
       isLoading: false,
       error: null,
       addProposal: (proposal) => {
-        const newProposal: Proposal = {
-          ...proposal,
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString(),
-        };
         set((state) => ({
-          proposals: [newProposal, ...state.proposals],
-          currentProposal: newProposal,
+          proposals: [...state.proposals, proposal],
+          currentProposal: proposal,
         }));
       },
       setCurrentProposal: (proposal) => set({ currentProposal: proposal }),
@@ -46,9 +42,14 @@ export const useUIStore = create<UIStore>()(
       getProposalById: (id) => {
         return get().proposals.find((p) => p.id === id);
       },
+      clearProposals: () => set({ proposals: [], currentProposal: null }),
     }),
     {
       name: 'proposely-storage',
+      partialize: (state) => ({
+        proposals: state.proposals,
+        currentProposal: state.currentProposal,
+      }),
     }
   )
 );
