@@ -6,7 +6,6 @@ import { useUIStore } from '@/state/uiStore';
 import { ProposalFormData } from '@/utils/validators';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
-import { nanoid } from 'nanoid';
 
 const CreateProposal = () => {
   const navigate = useNavigate();
@@ -23,12 +22,15 @@ const CreateProposal = () => {
     };
 
     try {
-      const localId = `p_${nanoid(8)}`;
-      
+      const payload = {
+        client_name: data.client_name,
+        project_type: data.project_type,
+        company_name: data.company_name || undefined,
+      };
+
       const response = await generateProposal(payload);
 
       const proposalToAdd = {
-        id: localId,
         client_name: data.client_name,
         project_type: data.project_type,
         company_name: data.company_name,
@@ -43,7 +45,7 @@ const CreateProposal = () => {
         description: 'Proposal generated successfully',
       });
 
-      navigate(`/proposal/${localId}`);
+      navigate(`/proposal/${response.id}`);
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || 'Failed to generate proposal';
       setError(errorMessage);

@@ -21,24 +21,22 @@ export const PricingTable = ({ items, total }: PricingTableProps) => {
         <TableHeader>
           <TableRow>
             <TableHead>Item</TableHead>
-            <TableHead className="text-right">Quantity</TableHead>
-            <TableHead className="text-right">Rate</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="text-right">Duration</TableHead>
+            <TableHead className="text-right">Price</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item, index) => (
             <TableRow key={index}>
-              <TableCell className="font-medium">{item.item}</TableCell>
-              <TableCell className="text-right">{item.quantity}</TableCell>
-              <TableCell className="text-right">₹{item.rate.toLocaleString()}</TableCell>
-              <TableCell className="text-right">₹{item.amount.toLocaleString()}</TableCell>
+              <TableCell className="font-medium">{item.name}</TableCell>
+              <TableCell className="text-right">{item.duration}</TableCell>
+              <TableCell className="text-right">₹{item.price.toLocaleString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={3} className="font-bold">Total</TableCell>
+            <TableCell colSpan={2} className="font-bold">Total</TableCell>
             <TableCell className="text-right font-bold">₹{total.toLocaleString()}</TableCell>
           </TableRow>
         </TableFooter>

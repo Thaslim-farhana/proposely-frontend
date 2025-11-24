@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import { GenerateProposalResponse } from '@/api/client';
 
 export interface Proposal extends GenerateProposalResponse {
-  id: string;
   client_name: string;
   project_type: string;
   company_name?: string;
