@@ -1,12 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://propsely-backend.onrender.com";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
-  },
+    "Content-Type": "application/json"
+  }
 });
 
 export interface GenerateProposalPayload {
@@ -16,13 +16,14 @@ export interface GenerateProposalPayload {
 }
 
 export interface PricingItem {
-  item: string;
-  quantity: number;
-  rate: number;
-  amount: number;
+  name: string;
+  duration: string;
+  price: number;
 }
 
 export interface GenerateProposalResponse {
+  id: string;
+  proposal_pdf_filename: string;
   proposal_pdf_download_url: string;
   pricing_table: PricingItem[];
   total: number;
@@ -40,6 +41,3 @@ export const checkHealth = async () => {
   return response.data;
 };
 
-export const getDownloadUrl = (filename: string) => {
-  return `${API_BASE_URL}/download/${filename}`;
-};
