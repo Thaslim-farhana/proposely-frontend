@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,12 @@ import {
   Download,
   Eye,
   Copy,
-  Filter
+  Filter,
+  LogOut
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getToken, clearToken, getCurrentUser, User } from '@/utils/auth';
+import { toast } from '@/hooks/use-toast';
 
 type ProposalStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected';
 
@@ -28,10 +31,62 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const proposals = useUIStore((state) => state.proposals);
   
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Auth guard
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getToken();
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const userData = await getCurrentUser(token);
+        setUser(userData);
+      } catch (error: any) {
+        console.error('Auth check failed:', error);
+        clearToken();
+        toast({
+          title: 'Session expired',
+          description: 'Please login again',
+          variant: 'destructive',
+        });
+        navigate('/login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  const handleLogout = () => {
+    clearToken();
+    toast({
+      title: 'Logged out',
+      description: 'You have been logged out successfully',
+    });
+    navigate('/login');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Helper to get random status for demo
   const getStatus = (index: number): ProposalStatus => {
@@ -82,7 +137,7 @@ const Dashboard = () => {
   return (
     <AppShell>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header with User Info */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -90,10 +145,27 @@ const Dashboard = () => {
               Track your proposals, status, and revenue at a glance.
             </p>
           </div>
-          <Button onClick={() => navigate('/create')}>
-            <PlusCircle className="w-4 h-4 mr-2" />
-            New Proposal
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-medium">{user?.email}</p>
+              <p className="text-xs text-muted-foreground">
+                {user?.plan || 'Free'} Plan
+                {user?.proposals_limit && (
+                  <span className="ml-2">
+                    ({user.proposals_count || 0}/{user.proposals_limit})
+                  </span>
+                )}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+            <Button onClick={() => navigate('/create')}>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              New Proposal
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}

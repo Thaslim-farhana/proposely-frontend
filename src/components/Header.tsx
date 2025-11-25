@@ -27,10 +27,10 @@ const Header = () => {
           </nav>
           
           <div className="flex items-center gap-4">
-            <Button variant="ghost" className="hidden sm:inline-flex" onClick={() => window.location.href = '/auth/login'}>
+            <Button variant="ghost" className="hidden sm:inline-flex" onClick={() => window.location.href = '/login'}>
               Sign In
             </Button>
-            <Button onClick={() => window.location.href = '/dashboard'}>Start Free</Button>
+            <Button onClick={() => window.location.href = '/register'}>Start Free</Button>
           </div>
         </div>
       </div>
