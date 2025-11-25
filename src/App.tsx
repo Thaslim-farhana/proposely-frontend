@@ -8,7 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import CreateProposal from "./pages/CreateProposal";
 import ProposalDetail from "./pages/ProposalDetail";
 import Settings from "./pages/Settings";
-import Login from "./pages/Login";
+import LoginPage from "./pages/LoginPage";
+import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,11 +22,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create" element={<CreateProposal />} />
           <Route path="/proposal/:id" element={<ProposalDetail />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/auth/login" element={<Login />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
