@@ -19,20 +19,29 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login...');
       const response = await apiRequest('/api/auth/login', 'POST', {
         email,
         password,
       });
       
-      // Save the token to localStorage
-      localStorage.setItem('proposely_token', response.access_token);
+      console.log('Login response:', response);
       
-      toast({
-        title: 'Welcome back!',
-        description: 'Successfully logged in',
-      });
-      navigate('/dashboard');
+      // Save the token to localStorage
+      if (response && response.access_token) {
+        localStorage.setItem('proposely_token', response.access_token);
+        console.log('Token saved to localStorage');
+        
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully logged in',
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error('No access token received from server');
+      }
     } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         title: 'Login failed',
         description: error.message || 'Invalid email or password',
