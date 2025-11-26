@@ -1,47 +1,62 @@
 import { useState, useEffect } from 'react';
 import { AppShell } from '@/components/AppShell';
-import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
-import { useUIStore } from '@/state/uiStore';
-import { useNavigate } from 'react-router-dom';
-import { 
-  PlusCircle, 
-  FileText, 
-  TrendingUp, 
-  Clock, 
-  DollarSign,
-  Search,
-  Download,
-  Eye,
-  Copy,
-  Filter,
-  LogOut
-} from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getToken, clearToken, getCurrentUser, User } from '@/utils/auth';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Download, Trash2, Loader2 } from 'lucide-react';
+import { apiRequest } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
-type ProposalStatus = 'Draft' | 'Sent' | 'Accepted' | 'Rejected';
+interface Proposal {
+  id: string;
+  title: string;
+  client_name?: string;
+  project_title?: string;
+  content?: string;
+  created_at: string;
+  pdf_url?: string;
+}
+
+interface GeneratedProposal {
+  title: string;
+  content: string;
+  pricing_breakdown?: any[];
+  total_cost?: number;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const proposals = useUIStore((state) => state.proposals);
-  
-  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [selectedProposal, setSelectedProposal] = useState<any>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // User state
+  const [userEmail, setUserEmail] = useState('');
+  
+  // Form state
+  const [clientName, setClientName] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [scope, setScope] = useState('');
+  const [budget, setBudget] = useState('');
+  const [timeline, setTimeline] = useState('');
+  const [tone, setTone] = useState('Professional');
+  const [notes, setNotes] = useState('');
+  
+  // Generated proposal state
+  const [generatedProposal, setGeneratedProposal] = useState<GeneratedProposal | null>(null);
+  
+  // Proposals list
+  const [proposals, setProposals] = useState<Proposal[]>([]);
 
-  // Auth guard
+  // Auth guard and fetch user data
   useEffect(() => {
     const checkAuth = async () => {
-      const token = getToken();
+      const token = localStorage.getItem('proposely_token');
       
       if (!token) {
         navigate('/login');
@@ -49,11 +64,12 @@ const Dashboard = () => {
       }
 
       try {
-        const userData = await getCurrentUser(token);
-        setUser(userData);
+        const userData = await apiRequest('/api/auth/me', 'GET', undefined, token);
+        setUserEmail(userData.email);
+        await fetchProposals(token);
       } catch (error: any) {
         console.error('Auth check failed:', error);
-        clearToken();
+        localStorage.removeItem('proposely_token');
         toast({
           title: 'Session expired',
           description: 'Please login again',
@@ -68,12 +84,121 @@ const Dashboard = () => {
     checkAuth();
   }, [navigate]);
 
+  const fetchProposals = async (token: string) => {
+    try {
+      const data = await apiRequest('/api/proposals/all', 'GET', undefined, token);
+      setProposals(data.proposals || []);
+    } catch (error: any) {
+      console.error('Failed to fetch proposals:', error);
+    }
+  };
+
+  const handleGenerateProposal = async () => {
+    if (!clientName || !projectTitle || !scope || !budget || !timeline) {
+      toast({
+        title: 'Missing fields',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    const token = localStorage.getItem('proposely_token');
+
+    try {
+      const result = await apiRequest('/api/proposals/generate', 'POST', {
+        client_name: clientName,
+        project_title: projectTitle,
+        scope,
+        budget,
+        timeline,
+        tone,
+        notes,
+      }, token);
+
+      setGeneratedProposal(result);
+      toast({
+        title: 'Proposal generated!',
+        description: 'Review your AI-generated proposal below',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Generation failed',
+        description: error.message || 'Failed to generate proposal',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSaveAndCreatePDF = async () => {
+    if (!generatedProposal) return;
+
+    setIsSaving(true);
+    const token = localStorage.getItem('proposely_token');
+
+    try {
+      const result = await apiRequest('/api/proposals/create', 'POST', {
+        title: generatedProposal.title,
+        content: generatedProposal.content,
+        generate_pdf: true,
+      }, token);
+
+      toast({
+        title: 'Proposal saved!',
+        description: 'Your proposal has been created with PDF',
+      });
+
+      // Refresh proposals list
+      await fetchProposals(token!);
+      
+      // Clear form and generated proposal
+      setClientName('');
+      setProjectTitle('');
+      setScope('');
+      setBudget('');
+      setTimeline('');
+      setNotes('');
+      setGeneratedProposal(null);
+
+      // Open PDF if available
+      if (result.pdf_url) {
+        window.open(result.pdf_url, '_blank');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Save failed',
+        description: error.message || 'Failed to save proposal',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProposal = async (id: string) => {
+    const token = localStorage.getItem('proposely_token');
+    
+    try {
+      await apiRequest(`/api/proposals/${id}`, 'DELETE', undefined, token);
+      toast({
+        title: 'Proposal deleted',
+        description: 'Proposal has been removed',
+      });
+      await fetchProposals(token!);
+    } catch (error: any) {
+      toast({
+        title: 'Delete failed',
+        description: error.message || 'Failed to delete proposal',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleLogout = () => {
-    clearToken();
-    toast({
-      title: 'Logged out',
-      description: 'You have been logged out successfully',
-    });
+    localStorage.removeItem('proposely_token');
     navigate('/login');
   };
 
@@ -88,365 +213,263 @@ const Dashboard = () => {
     );
   }
 
-  // Helper to get random status for demo
-  const getStatus = (index: number): ProposalStatus => {
-    const statuses: ProposalStatus[] = ['Draft', 'Sent', 'Accepted', 'Rejected'];
-    return statuses[index % 4];
-  };
-
-  // Filter proposals
-  const filteredProposals = proposals.filter((proposal) => {
-    const matchesSearch = 
-      proposal.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      proposal.project_type.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (statusFilter === 'All') return matchesSearch;
-    return matchesSearch && getStatus(proposals.indexOf(proposal)) === statusFilter;
-  });
-
-  // Calculate KPIs
-  const thisMonthProposals = proposals.length;
-  const wonValue = proposals
-    .filter((_, idx) => getStatus(idx) === 'Accepted')
-    .reduce((sum, p) => sum + (p.total || 0), 0);
-  const pendingProposals = proposals.filter((_, idx) => 
-    getStatus(idx) === 'Sent' || getStatus(idx) === 'Draft'
-  ).length;
-  const avgResponseTime = '2.5 days';
-
-  const handleRowClick = (proposal: any) => {
-    setSelectedProposal(proposal);
-    setDrawerOpen(true);
-  };
-
-  const handleDownload = (url: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    window.open(url, '_blank');
-  };
-
-  const getStatusVariant = (status: ProposalStatus): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Accepted': return 'default';
-      case 'Sent': return 'secondary';
-      case 'Draft': return 'outline';
-      case 'Rejected': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
   return (
     <AppShell>
-      <div className="space-y-6">
-        {/* Header with User Info */}
+      <div className="space-y-8 max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Track your proposals, status, and revenue at a glance.
+              Generate professional proposals with AI
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium">{user?.email}</p>
-              <p className="text-xs text-muted-foreground">
-                {user?.plan || 'Free'} Plan
-                {user?.proposals_limit && (
-                  <span className="ml-2">
-                    ({user.proposals_count || 0}/{user.proposals_limit})
-                  </span>
-                )}
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
+          <div className="text-right">
+            <p className="text-sm font-medium">{userEmail}</p>
+            <Button variant="ghost" size="sm" className="mt-1" onClick={handleLogout}>
               Logout
-            </Button>
-            <Button onClick={() => navigate('/create')}>
-              <PlusCircle className="w-4 h-4 mr-2" />
-              New Proposal
             </Button>
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Proposals This Month</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{thisMonthProposals}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-600">+12%</span> from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Won Value</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₹{wonValue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-600">+8%</span> from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Proposals</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingProposals}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Awaiting response
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgResponseTime}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-600">-15%</span> faster
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
+        {/* Proposal Generator */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+            <CardTitle>Create a New Proposal</CardTitle>
+            <CardDescription>
+              Fill in the details and let AI generate a professional proposal
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => navigate('/create')}>
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Create Proposal
-              </Button>
-              <Button variant="outline" onClick={() => console.log('Duplicate last')}>
-                <Copy className="w-4 h-4 mr-2" />
-                Duplicate Last Proposal
-              </Button>
-              <Button variant="outline" onClick={() => console.log('View templates')}>
-                <FileText className="w-4 h-4 mr-2" />
-                View Templates
-              </Button>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Client Name *</Label>
+                <Input
+                  id="clientName"
+                  placeholder="John Doe"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="projectTitle">Project Title *</Label>
+                <Input
+                  id="projectTitle"
+                  placeholder="Website Redesign"
+                  value={projectTitle}
+                  onChange={(e) => setProjectTitle(e.target.value)}
+                />
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="scope">Scope *</Label>
+              <Textarea
+                id="scope"
+                placeholder="Describe the project scope, deliverables, and requirements..."
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                rows={4}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget *</Label>
+                <Input
+                  id="budget"
+                  placeholder="$5,000 - $10,000"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="timeline">Timeline *</Label>
+                <Input
+                  id="timeline"
+                  placeholder="4-6 weeks"
+                  value={timeline}
+                  onChange={(e) => setTimeline(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tone">Tone</Label>
+              <Select value={tone} onValueChange={setTone}>
+                <SelectTrigger id="tone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Professional">Professional</SelectItem>
+                  <SelectItem value="Friendly">Friendly</SelectItem>
+                  <SelectItem value="Formal">Formal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Extra Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Any additional information or special requirements..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              onClick={handleGenerateProposal} 
+              disabled={isGenerating}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating Proposal...
+                </>
+              ) : (
+                'Generate Proposal with AI'
+              )}
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Proposals Table Section */}
-        {proposals.length === 0 ? (
-          <EmptyState
-            title="No proposals yet"
-            description="Create your first professional proposal in under 60 seconds."
-            actionLabel="Create your first proposal"
-            onAction={() => navigate('/create')}
-          />
-        ) : (
-          <Card>
+        {/* Generated Proposal Preview */}
+        {generatedProposal && (
+          <Card className="border-primary">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Recent Proposals</CardTitle>
-              </div>
+              <CardTitle>Generated Proposal Preview</CardTitle>
               <CardDescription>
-                Manage and track all your proposals
+                Review your AI-generated proposal before saving
               </CardDescription>
-              
-              {/* Search and Filter */}
-              <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by client or project type..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Status</SelectItem>
-                    <SelectItem value="Draft">Draft</SelectItem>
-                    <SelectItem value="Sent">Sent</SelectItem>
-                    <SelectItem value="Accepted">Accepted</SelectItem>
-                    <SelectItem value="Rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </CardHeader>
-
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-sm">Client</th>
-                      <th className="text-left py-3 px-4 font-medium text-sm">Project Type</th>
-                      <th className="text-left py-3 px-4 font-medium text-sm">Status</th>
-                      <th className="text-right py-3 px-4 font-medium text-sm">Total</th>
-                      <th className="text-left py-3 px-4 font-medium text-sm">Last Updated</th>
-                      <th className="text-right py-3 px-4 font-medium text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProposals.map((proposal, index) => {
-                      const status = getStatus(proposals.indexOf(proposal));
-                      const date = new Date(proposal.created_at).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      });
-
-                      return (
-                        <tr 
-                          key={proposal.id} 
-                          className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => handleRowClick(proposal)}
-                        >
-                          <td className="py-3 px-4">
-                            <div className="font-medium">{proposal.client_name}</div>
-                            {proposal.company_name && (
-                              <div className="text-xs text-muted-foreground">{proposal.company_name}</div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm">{proposal.project_type}</td>
-                          <td className="py-3 px-4">
-                            <Badge variant={getStatusVariant(status)}>{status}</Badge>
-                          </td>
-                          <td className="py-3 px-4 text-right font-medium">
-                            ₹{(proposal.total || 0).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{date}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/proposal/${proposal.id}`);
-                                }}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              {proposal.proposal_pdf_download_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => handleDownload(proposal.proposal_pdf_download_url, e)}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                {filteredProposals.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No proposals found matching your filters.
-                  </div>
-                )}
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{generatedProposal.title}</h3>
+                <Separator className="my-3" />
+                <div className="prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans">
+                    {generatedProposal.content}
+                  </pre>
+                </div>
               </div>
+
+              {generatedProposal.pricing_breakdown && (
+                <div>
+                  <h4 className="font-semibold mb-2">Pricing Breakdown</h4>
+                  <div className="space-y-2">
+                    {generatedProposal.pricing_breakdown.map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span>{item.name}</span>
+                        <span className="font-medium">{item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {generatedProposal.total_cost && (
+                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                  <span>Total Cost</span>
+                  <span>{generatedProposal.total_cost}</span>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleSaveAndCreatePDF} 
+                disabled={isSaving}
+                className="w-full"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save & Create PDF'
+                )}
+              </Button>
             </CardContent>
           </Card>
         )}
-      </div>
 
-      {/* Quick View Drawer */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {selectedProposal && (
-            <>
-              <SheetHeader>
-                <SheetTitle>{selectedProposal.client_name}</SheetTitle>
-                <SheetDescription>
-                  {selectedProposal.project_type}
-                  {selectedProposal.company_name && ` • ${selectedProposal.company_name}`}
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-6 mt-6">
-                {/* Total */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Total Amount</h3>
-                  <p className="text-2xl font-bold">₹{(selectedProposal.total || 0).toLocaleString()}</p>
-                </div>
-
-                {/* Cover Letter */}
-                {selectedProposal.cover_letter && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Cover Letter</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {selectedProposal.cover_letter}
-                    </p>
-                  </div>
-                )}
-
-                {/* Pricing Table */}
-                {selectedProposal.pricing_table && selectedProposal.pricing_table.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-3">Pricing Breakdown</h3>
-                    <div className="space-y-2">
-                      {selectedProposal.pricing_table.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center py-2 border-b">
-                          <div>
-                            <p className="text-sm font-medium">{item.name}</p>
-                            {item.duration && (
-                              <p className="text-xs text-muted-foreground">{item.duration}</p>
-                            )}
-                          </div>
-                          <p className="text-sm font-medium">₹{item.price.toLocaleString()}</p>
-                        </div>
-                      ))}
+        {/* My Proposals Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Proposals</CardTitle>
+            <CardDescription>
+              View and manage all your saved proposals
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {proposals.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No proposals yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create your first proposal using the form above
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {proposals.map((proposal) => (
+                  <div
+                    key={proposal.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{proposal.title}</h4>
+                        {(proposal.client_name || proposal.project_title) && (
+                          <p className="text-sm text-muted-foreground">
+                            {proposal.client_name && proposal.project_title 
+                              ? `${proposal.client_name} • ${proposal.project_title}`
+                              : proposal.client_name || proposal.project_title
+                            }
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(proposal.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {proposal.pdf_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(proposal.pdf_url, '_blank')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProposal(proposal.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
-
-              <SheetFooter className="mt-6 flex-col sm:flex-row gap-2">
-                {selectedProposal.proposal_pdf_download_url && (
-                  <Button 
-                    onClick={() => handleDownload(selectedProposal.proposal_pdf_download_url)}
-                    className="w-full"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  onClick={() => console.log('Duplicate', selectedProposal.id)}
-                  className="w-full"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Duplicate
-                </Button>
-              </SheetFooter>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </AppShell>
   );
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login, saveToken } from '@/utils/auth';
+import { apiRequest } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,8 +19,14 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await login(email, password);
-      saveToken(response.access_token);
+      const response = await apiRequest('/api/auth/login', 'POST', {
+        email,
+        password,
+      });
+      
+      // Save the token to localStorage
+      localStorage.setItem('proposely_token', response.access_token);
+      
       toast({
         title: 'Welcome back!',
         description: 'Successfully logged in',
