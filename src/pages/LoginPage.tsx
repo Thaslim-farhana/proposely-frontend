@@ -1,17 +1,24 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { apiRequest } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { apiRequest } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
+import { Sparkles } from "lucide-react";
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,33 +26,35 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      console.log('Attempting login...');
-      const response = await apiRequest('/api/auth/login', 'POST', {
+      console.log("Attempting login...");
+
+      const response = await apiRequest("/api/auth/login", "POST", {
         email,
         password,
       });
-      
-      console.log('Login response:', response);
-      
-      // Save the token to localStorage
-      if (response && response.access_token) {
-        localStorage.setItem('proposely_token', response.access_token);
-        console.log('Token saved to localStorage');
-        
+
+      console.log("Login response:", response);
+
+      if (response?.access_token) {
+        localStorage.setItem("proposely_token", response.access_token);
+        console.log("Token saved to localStorage ✅");
+
         toast({
-          title: 'Welcome back!',
-          description: 'Successfully logged in',
+          title: "Welcome back!",
+          description: "Successfully logged in",
         });
-        navigate('/dashboard');
+
+        navigate("/dashboard");
       } else {
-        throw new Error('No access token received from server');
+        throw new Error("No access token received from server");
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
+
       toast({
-        title: 'Login failed',
-        description: error.message || 'Invalid email or password',
-        variant: 'destructive',
+        title: "Login failed",
+        description: error.message || "Invalid email or password",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -61,11 +70,15 @@ const LoginPage = () => {
               <Sparkles className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+
+          <CardTitle className="text-2xl font-bold">
+            Welcome back
+          </CardTitle>
           <CardDescription>
             Login to your Proposely account
           </CardDescription>
         </CardHeader>
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -80,6 +93,7 @@ const LoginPage = () => {
                 disabled={isLoading}
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -93,12 +107,14 @@ const LoginPage = () => {
               />
             </div>
           </CardContent>
+
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
+
             <p className="text-sm text-center text-muted-foreground">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{" "}
               <Link to="/register" className="text-primary hover:underline font-medium">
                 Sign up
               </Link>
