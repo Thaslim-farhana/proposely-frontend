@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { apiRequest } from "@/lib/api";
+import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { login as loginApi } from "@/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,40 +18,34 @@ import { Sparkles } from "lucide-react";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const from = (location.state as any)?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      console.log("Attempting login...");
+      const response = await loginApi(email, password);
 
-      const response = await apiRequest("/api/auth/login", "POST", {
-        email,
-        password,
-      });
-
-      console.log("Login response:", response);
-
-      if (response?.access_token) {
-        localStorage.setItem("proposely_token", response.access_token);
-        console.log("Token saved to localStorage ✅");
+      if (response?.access_token && response?.user) {
+        login(response.access_token, response.user);
 
         toast({
           title: "Welcome back!",
           description: "Successfully logged in",
         });
 
-        navigate("/dashboard");
+        navigate(from, { replace: true });
       } else {
         throw new Error("No access token received from server");
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-
       toast({
         title: "Login failed",
         description: error.message || "Invalid email or password",

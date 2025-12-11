@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { apiRequest } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { register as registerApi } from '@/utils/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Sparkles } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,19 +21,19 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiRequest('/api/auth/register', 'POST', {
-        email,
-        password,
-      });
+      const response = await registerApi(email, password);
       
-      // Save the token to localStorage
-      localStorage.setItem('proposely_token', response.access_token);
-      
-      toast({
-        title: 'Account created!',
-        description: 'Welcome to Proposely',
-      });
-      navigate('/dashboard');
+      if (response?.access_token && response?.user) {
+        login(response.access_token, response.user);
+        
+        toast({
+          title: 'Account created!',
+          description: 'Welcome to Proposely',
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error('Registration failed');
+      }
     } catch (error: any) {
       toast({
         title: 'Registration failed',

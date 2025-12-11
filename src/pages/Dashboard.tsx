@@ -6,11 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Trash2, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Proposal {
   id: string;
@@ -30,13 +30,10 @@ interface GeneratedProposal {
 }
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const { token } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // User state
-  const [userEmail, setUserEmail] = useState('');
   
   // Form state
   const [clientName, setClientName] = useState('');
@@ -53,43 +50,20 @@ const Dashboard = () => {
   // Proposals list
   const [proposals, setProposals] = useState<Proposal[]>([]);
 
-  // Auth guard and fetch user data
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('proposely_token');
-      
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+    if (token) {
+      fetchProposals(token);
+    }
+  }, [token]);
 
-      try {
-        const userData = await apiRequest('/api/auth/me', 'GET', undefined, token);
-        setUserEmail(userData.email);
-        await fetchProposals(token);
-      } catch (error: any) {
-        console.error('Auth check failed:', error);
-        localStorage.removeItem('proposely_token');
-        toast({
-          title: 'Session expired',
-          description: 'Please login again',
-          variant: 'destructive',
-        });
-        navigate('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  const fetchProposals = async (token: string) => {
+  const fetchProposals = async (authToken: string) => {
     try {
-      const data = await apiRequest('/api/proposals/all', 'GET', undefined, token);
+      const data = await apiRequest('/api/proposals/all', 'GET', undefined, authToken);
       setProposals(data.proposals || []);
     } catch (error: any) {
       console.error('Failed to fetch proposals:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -104,7 +78,6 @@ const Dashboard = () => {
     }
 
     setIsGenerating(true);
-    const token = localStorage.getItem('proposely_token');
 
     try {
       const result = await apiRequest('/api/proposals/generate', 'POST', {
@@ -115,7 +88,7 @@ const Dashboard = () => {
         timeline,
         tone,
         notes,
-      }, token);
+      }, token!);
 
       setGeneratedProposal(result);
       toast({
@@ -137,14 +110,13 @@ const Dashboard = () => {
     if (!generatedProposal) return;
 
     setIsSaving(true);
-    const token = localStorage.getItem('proposely_token');
 
     try {
       const result = await apiRequest('/api/proposals/create', 'POST', {
         title: generatedProposal.title,
         content: generatedProposal.content,
         generate_pdf: true,
-      }, token);
+      }, token!);
 
       toast({
         title: 'Proposal saved!',
@@ -179,10 +151,8 @@ const Dashboard = () => {
   };
 
   const handleDeleteProposal = async (id: string) => {
-    const token = localStorage.getItem('proposely_token');
-    
     try {
-      await apiRequest(`/api/proposals/${id}`, 'DELETE', undefined, token);
+      await apiRequest(`/api/proposals/${id}`, 'DELETE', undefined, token!);
       toast({
         title: 'Proposal deleted',
         description: 'Proposal has been removed',
@@ -195,11 +165,6 @@ const Dashboard = () => {
         variant: 'destructive',
       });
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('proposely_token');
-    navigate('/login');
   };
 
   if (isLoading) {
@@ -217,19 +182,11 @@ const Dashboard = () => {
     <AppShell>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              Generate professional proposals with AI
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-medium">{userEmail}</p>
-            <Button variant="ghost" size="sm" className="mt-1" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Generate professional proposals with AI
+          </p>
         </div>
 
         {/* Proposal Generator */}
