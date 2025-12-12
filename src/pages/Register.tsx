@@ -12,6 +12,7 @@ import { Sparkles } from 'lucide-react';
 const Register = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,10 +22,11 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      const response = await registerApi(email, password);
+      const response = await registerApi(name, email, password);
+      const token = response.token || response.access_token;
       
-      if (response?.access_token && response?.user) {
-        login(response.access_token, response.user);
+      if (token && response?.user) {
+        login(token, response.user);
         
         toast({
           title: 'Account created!',
@@ -61,6 +63,18 @@ const Register = () => {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
