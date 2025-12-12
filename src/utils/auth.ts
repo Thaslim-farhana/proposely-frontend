@@ -1,7 +1,10 @@
+import { apiRequest } from '@/lib/api';
+
 const TOKEN_KEY = 'proposely_token';
+const USER_KEY = 'proposely_user';
 
 export const getToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+  return typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
 };
 
 export const saveToken = (token: string): void => {
@@ -10,83 +13,77 @@ export const saveToken = (token: string): void => {
 
 export const clearToken = (): void => {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://propsely-backend.onrender.com';
+export const saveUser = (user: User): void => {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+};
 
-interface ApiRequestOptions {
-  method?: string;
-  body?: any;
-  token?: string;
-}
-
-export const apiRequest = async <T = any>(
-  path: string,
-  options: ApiRequestOptions = {}
-): Promise<T> => {
-  const { method = 'GET', body, token } = options;
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+export const getStoredUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(USER_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
   }
-
-  const config: RequestInit = {
-    method,
-    headers,
-  };
-
-  if (body && method !== 'GET') {
-    config.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, config);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  return response.json();
 };
 
 export interface User {
   id: string;
   email: string;
+  name?: string;
   plan: string;
   proposals_count?: number;
   proposals_limit?: number;
 }
 
 export interface LoginResponse {
-  access_token: string;
+  token: string;
+  access_token?: string;
   user: User;
 }
 
 export interface RegisterResponse {
-  access_token: string;
+  token: string;
+  access_token?: string;
   user: User;
 }
 
-export const register = async (email: string, password: string): Promise<RegisterResponse> => {
-  return apiRequest<RegisterResponse>('/api/auth/register', {
+export const register = async (name: string, email: string, password: string): Promise<RegisterResponse> => {
+  const data = await apiRequest<RegisterResponse>('/auth/signup', {
     method: 'POST',
-    body: { email, password },
+    body: { name, email, password },
   });
+  
+  const token = data.token || data.access_token;
+  if (!token) throw new Error('Invalid signup response');
+  
+  saveToken(token);
+  if (data.user) saveUser(data.user);
+  
+  return { ...data, token };
 };
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  return apiRequest<LoginResponse>('/api/auth/login', {
+  const data = await apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: { email, password },
   });
+  
+  const token = data.token || data.access_token;
+  if (!token) throw new Error('Invalid login response');
+  
+  saveToken(token);
+  if (data.user) saveUser(data.user);
+  
+  return { ...data, token };
 };
 
 export const getCurrentUser = async (token: string): Promise<User> => {
-  return apiRequest<User>('/api/auth/me', { token });
+  return apiRequest<User>('/auth/me', { token });
 };
 
 export const isAuthenticated = (): boolean => {

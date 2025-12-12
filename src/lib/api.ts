@@ -1,38 +1,118 @@
-// Note: This is a Vite app, so we use import.meta.env instead of process.env
+// API client with timeout handling and raw response support
+
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://propsely-backend.onrender.com';
 
-export async function apiRequest(
+const TOKEN_KEY = 'proposely_token';
+
+function getToken(): string | null {
+  return typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+}
+
+export interface ApiRequestOptions {
+  method?: string;
+  body?: any;
+  token?: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+  raw?: boolean; // Return raw Response for blob handling
+}
+
+export async function apiRequest<T = any>(
   path: string,
-  method: string = "GET",
-  body?: any,
-  token?: string
-) {
-  if (!API_BASE) {
-    throw new Error("API base URL is not defined");
-  }
+  options: ApiRequestOptions = {}
+): Promise<T> {
+  const { method = 'GET', body, token, headers: customHeaders, timeout = 20000, raw = false } = options;
+
+  const storedToken = token || getToken();
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
+    ...customHeaders,
+    ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  let data: any = null;
   try {
-    data = await res.json();
-  } catch (e) {
-    // ignore if no json
-  }
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  if (!res.ok) {
-    const msg = (data && (data.message || data.error)) || "Request failed";
-    throw new Error(msg);
-  }
+    const contentType = res.headers.get('content-type') || '';
 
-  return data;
+    if (res.ok) {
+      if (raw) {
+        return res as unknown as T;
+      }
+      if (contentType.includes('application/json')) {
+        return await res.json();
+      }
+      return (await res.text()) as unknown as T;
+    }
+
+    // Not ok — extract helpful error message
+    let errorText = '';
+    try {
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        errorText = data.message || data.error || JSON.stringify(data);
+      } else {
+        errorText = await res.text();
+      }
+    } catch {
+      errorText = res.statusText || `HTTP ${res.status}`;
+    }
+
+    const error = new Error(errorText || `HTTP ${res.status}`) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw err;
+  }
+}
+
+// Proposal generation with blob support
+export async function generateProposalBlob(payload: {
+  client_name: string;
+  project_type: string;
+  company_name?: string;
+  template?: string;
+  title?: string;
+  content?: string;
+  project_budget?: number;
+}): Promise<Response> {
+  return apiRequest<Response>('/generate-proposal', {
+    method: 'POST',
+    body: payload,
+    raw: true,
+    timeout: 60000, // Generation may take longer
+  });
+}
+
+// Save proposal metadata
+export async function saveProposal(payload: {
+  client_name: string;
+  project_type: string;
+  company_name?: string;
+  title?: string;
+  template?: string;
+}): Promise<any> {
+  return apiRequest('/proposals/create', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+// List user proposals
+export async function listProposals(): Promise<any[]> {
+  return apiRequest('/proposals/list', { method: 'GET' });
 }

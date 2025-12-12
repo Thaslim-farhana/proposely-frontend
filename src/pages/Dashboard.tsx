@@ -58,7 +58,7 @@ const Dashboard = () => {
 
   const fetchProposals = async (authToken: string) => {
     try {
-      const data = await apiRequest('/api/proposals/all', 'GET', undefined, authToken);
+      const data = await apiRequest('/api/proposals/all', { method: 'GET', token: authToken });
       setProposals(data.proposals || []);
     } catch (error: any) {
       console.error('Failed to fetch proposals:', error);
@@ -80,15 +80,19 @@ const Dashboard = () => {
     setIsGenerating(true);
 
     try {
-      const result = await apiRequest('/api/proposals/generate', 'POST', {
-        client_name: clientName,
-        project_title: projectTitle,
-        scope,
-        budget,
-        timeline,
-        tone,
-        notes,
-      }, token!);
+      const result = await apiRequest('/api/proposals/generate', {
+        method: 'POST',
+        body: {
+          client_name: clientName,
+          project_title: projectTitle,
+          scope,
+          budget,
+          timeline,
+          tone,
+          notes,
+        },
+        token: token!,
+      });
 
       setGeneratedProposal(result);
       toast({
@@ -112,11 +116,15 @@ const Dashboard = () => {
     setIsSaving(true);
 
     try {
-      const result = await apiRequest('/api/proposals/create', 'POST', {
-        title: generatedProposal.title,
-        content: generatedProposal.content,
-        generate_pdf: true,
-      }, token!);
+      const result = await apiRequest('/api/proposals/create', {
+        method: 'POST',
+        body: {
+          title: generatedProposal.title,
+          content: generatedProposal.content,
+          generate_pdf: true,
+        },
+        token: token!,
+      });
 
       toast({
         title: 'Proposal saved!',
@@ -152,7 +160,7 @@ const Dashboard = () => {
 
   const handleDeleteProposal = async (id: string) => {
     try {
-      await apiRequest(`/api/proposals/${id}`, 'DELETE', undefined, token!);
+      await apiRequest(`/api/proposals/${id}`, { method: 'DELETE', token: token! });
       toast({
         title: 'Proposal deleted',
         description: 'Proposal has been removed',
