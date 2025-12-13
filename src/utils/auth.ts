@@ -41,49 +41,52 @@ export interface User {
 }
 
 export interface LoginResponse {
-  token: string;
-  access_token?: string;
-  user: User;
+  access_token: string;
+  token_type: string;
+  user?: User;
 }
 
 export interface RegisterResponse {
-  token: string;
-  access_token?: string;
-  user: User;
+  access_token: string;
+  token_type: string;
+  user?: User;
 }
 
-export const register = async (name: string, email: string, password: string): Promise<RegisterResponse> => {
-  const data = await apiRequest<RegisterResponse>('/auth/signup', {
-    method: 'POST',
-    body: { name, email, password },
-  });
-  
-  const token = data.token || data.access_token;
-  if (!token) throw new Error('Invalid signup response');
-  
-  saveToken(token);
-  if (data.user) saveUser(data.user);
-  
-  return { ...data, token };
-};
-
+// OAuth2 login using form-urlencoded with username field
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  const data = await apiRequest<LoginResponse>('/auth/login', {
+  const data = await apiRequest<LoginResponse>('/api/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { username: email, password }, // OAuth2 uses 'username' field
+    formData: true, // Send as application/x-www-form-urlencoded
   });
   
-  const token = data.token || data.access_token;
+  const token = data.access_token;
   if (!token) throw new Error('Invalid login response');
   
   saveToken(token);
   if (data.user) saveUser(data.user);
   
-  return { ...data, token };
+  return data;
+};
+
+// Signup uses JSON
+export const register = async (name: string, email: string, password: string): Promise<RegisterResponse> => {
+  const data = await apiRequest<RegisterResponse>('/api/auth/signup', {
+    method: 'POST',
+    body: { name, email, password },
+  });
+  
+  const token = data.access_token;
+  if (!token) throw new Error('Invalid signup response');
+  
+  saveToken(token);
+  if (data.user) saveUser(data.user);
+  
+  return data;
 };
 
 export const getCurrentUser = async (token: string): Promise<User> => {
-  return apiRequest<User>('/auth/me', { token });
+  return apiRequest<User>('/api/auth/me', { token });
 };
 
 export const isAuthenticated = (): boolean => {
