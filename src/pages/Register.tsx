@@ -23,10 +23,11 @@ const Register = () => {
 
     try {
       const response = await registerApi(name, email, password);
-      const token = response.token || response.access_token;
       
-      if (token && response?.user) {
-        login(token, response.user);
+      if (response?.access_token) {
+        // User might not be returned immediately, create a basic user object
+        const userData = response.user || { id: '', email, name, plan: 'free' };
+        login(response.access_token, userData);
         
         toast({
           title: 'Account created!',

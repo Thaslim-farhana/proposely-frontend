@@ -14,19 +14,20 @@ export interface ApiRequestOptions {
   token?: string;
   headers?: Record<string, string>;
   timeout?: number;
-  raw?: boolean; // Return raw Response for blob handling
+  raw?: boolean;
+  formData?: boolean; // For OAuth2 form-urlencoded
 }
 
 export async function apiRequest<T = any>(
   path: string,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, token, headers: customHeaders, timeout = 20000, raw = false } = options;
+  const { method = 'GET', body, token, headers: customHeaders, timeout = 20000, raw = false, formData = false } = options;
 
   const storedToken = token || getToken();
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(formData ? {} : { 'Content-Type': 'application/json' }),
     ...customHeaders,
     ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
   };
@@ -35,10 +36,25 @@ export async function apiRequest<T = any>(
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    let requestBody: string | undefined;
+    if (body && method !== 'GET') {
+      if (formData) {
+        // OAuth2 form-urlencoded format
+        const params = new URLSearchParams();
+        Object.entries(body).forEach(([key, value]) => {
+          if (value !== undefined) params.append(key, String(value));
+        });
+        requestBody = params.toString();
+        headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      } else {
+        requestBody = JSON.stringify(body);
+      }
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+      body: requestBody,
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -55,12 +71,11 @@ export async function apiRequest<T = any>(
       return (await res.text()) as unknown as T;
     }
 
-    // Not ok — extract helpful error message
     let errorText = '';
     try {
       if (contentType.includes('application/json')) {
         const data = await res.json();
-        errorText = data.message || data.error || JSON.stringify(data);
+        errorText = data.detail || data.message || data.error || JSON.stringify(data);
       } else {
         errorText = await res.text();
       }
@@ -80,8 +95,41 @@ export async function apiRequest<T = any>(
   }
 }
 
-// Proposal generation with blob support
-export async function generateProposalBlob(payload: {
+// Proposal preview (no PDF)
+export async function previewProposal(payload: {
+  client_name: string;
+  project_type: string;
+  company_name?: string;
+  template?: string;
+  title?: string;
+  content?: string;
+  project_budget?: number;
+}): Promise<any> {
+  return apiRequest('/api/proposals/preview', {
+    method: 'POST',
+    body: payload,
+    timeout: 60000,
+  });
+}
+
+// Save proposal metadata (auth required)
+export async function saveProposal(payload: {
+  client_name: string;
+  project_type: string;
+  company_name?: string;
+  title?: string;
+  template?: string;
+  content?: string;
+  project_budget?: number;
+}): Promise<any> {
+  return apiRequest('/api/proposals/create', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+// Generate PDF blob (auth required)
+export async function generateProposalPdf(payload: {
   client_name: string;
   project_type: string;
   company_name?: string;
@@ -90,29 +138,20 @@ export async function generateProposalBlob(payload: {
   content?: string;
   project_budget?: number;
 }): Promise<Response> {
-  return apiRequest<Response>('/generate-proposal', {
+  return apiRequest<Response>('/api/generate-proposal', {
     method: 'POST',
     body: payload,
     raw: true,
-    timeout: 60000, // Generation may take longer
+    timeout: 60000,
   });
 }
 
-// Save proposal metadata
-export async function saveProposal(payload: {
-  client_name: string;
-  project_type: string;
-  company_name?: string;
-  title?: string;
-  template?: string;
-}): Promise<any> {
-  return apiRequest('/proposals/create', {
-    method: 'POST',
-    body: payload,
-  });
-}
-
-// List user proposals
+// List user proposals (auth required)
 export async function listProposals(): Promise<any[]> {
-  return apiRequest('/proposals/list', { method: 'GET' });
+  return apiRequest('/api/proposals/list', { method: 'GET' });
+}
+
+// Delete proposal
+export async function deleteProposal(id: string): Promise<void> {
+  return apiRequest(`/api/proposals/${id}`, { method: 'DELETE' });
 }
